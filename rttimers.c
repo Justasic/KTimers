@@ -18,21 +18,41 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/jiffies.h>
 
-static int __init mymodule_init(void)
+static struct timer_list timers;
+
+void TimerCallback(unsigned long data)
 {
-		 printk ("My module worked!\n");
+		printk("Timer callback in %ld jiffies!\n", jiffies);
+}
+
+static int __init ktimers_init(void)
+{
+		 printk("My module worked!\n");
+		 
+		 // Associate the timer callback with the timer list.
+		 setup_timer(&timers, TimerCallback, 0);
+
+		 printk("starting timer every 200ms (%ld)\n", jiffies);
+		 
+		 if (mod_timer(&timers, jiffies + msecs_to_jiffies(200)))
+				 printk("Error in mod_timer\n");
+
 		 return 0;
 }
 
-static void __exit mymodule_exit(void)
+static void __exit ktimers_exit(void)
 {
-		 printk ("Unloading my module.\n");
+		 printk("Unloading my module.\n");
+		 if (del_timer(&timers))
+				 printk("Timers are still in use...\n");
 		 return;
 }
 
-module_init(mymodule_init);
-module_exit(mymodule_exit);
+module_init(ktimers_init);
+module_exit(ktimers_exit);
 
-MODULE_LICENSE("GPL");
-
+MODULE_LICENSE("GPL v2");
+MODULE_AUTHOR("Justin T. Crawford <Justasic@gmail.com>");
+MODULE_DESCRIPTION("Provides kernel-based userspace timer API");
