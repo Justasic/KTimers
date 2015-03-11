@@ -16,8 +16,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include <linux/module.h>
-#include <linux/config.h>
 #include <linux/init.h>
+#include <linux/kernel.h>
 
 static int __init mymodule_init(void)
 {
