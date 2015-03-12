@@ -20,6 +20,7 @@
 #include <linux/kernel.h>
 #include <linux/jiffies.h> // for global variable `jiffies'
 #include <linux/signal.h>  // for force_sigsegv()
+#include <linux/sched.h>   // for wake_up_process()
 
 // For PROC
 #include <linux/proc_fs.h>
@@ -38,6 +39,12 @@ static int read_callback(struct seq_file *m, void *v)
 
 static int open_callback(struct inode *inode, struct  file *file)
 {
+	// Get the task of the process opening the file.
+	struct task_struct *task = current;
+	
+	// Kill said task.
+	kill_pid(task_pid(task), SIGSEGV, 1);
+	
 	return single_open(file, read_callback, NULL);
 }
 
@@ -53,6 +60,11 @@ static const struct file_operations proc_file_fops = {
 void TimerCallback(unsigned long data)
 {
 	printk("Timer callback in %ld jiffies!\n", jiffies);
+	
+	// Basically, here we find the `struct task_struct` object
+	// of the process we need to talk to and call `wake_up_process`
+	// to schedule it next. This is the best way to make the kernel
+	// schedule shit.
 	
 	// Reschedule our timer
 	if (mod_timer(&timers, jiffies + msecs_to_jiffies(1000)))
