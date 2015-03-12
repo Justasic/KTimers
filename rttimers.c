@@ -15,39 +15,76 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-#include <linux/module.h>
+#include <linux/module.h> // for module macros and functions
 #include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/jiffies.h>
+#include <linux/jiffies.h> // for global variable `jiffies'
+#include <linux/signal.h>  // for force_sigsegv()
+
+// For PROC
+#include <linux/proc_fs.h>
+#include <linux/string.h>
+#include <linux/vmalloc.h>
+#include <asm/uaccess.h>
+#include <linux/seq_file.h>
 
 static struct timer_list timers;
 
+static int read_callback(struct seq_file *m, void *v)
+{
+	seq_printf(m, "Hello proc!\n");
+	return 0;
+}
+
+static int open_callback(struct inode *inode, struct  file *file)
+{
+	return single_open(file, read_callback, NULL);
+}
+
+struct proc_dir_entry *proc_file_entry;
+static const struct file_operations proc_file_fops = {
+	.owner   = THIS_MODULE,
+	.open    = open_callback,
+	.read    = seq_read,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
 void TimerCallback(unsigned long data)
 {
-		printk("Timer callback in %ld jiffies!\n", jiffies);
+	printk("Timer callback in %ld jiffies!\n", jiffies);
+	
+	// Reschedule our timer
+	if (mod_timer(&timers, jiffies + msecs_to_jiffies(1000)))
+		printk("Error in mod_timer\n");
 }
 
 static int __init ktimers_init(void)
 {
-		 printk("My module worked!\n");
-		 
-		 // Associate the timer callback with the timer list.
-		 setup_timer(&timers, TimerCallback, 0);
+	printk("My module worked!\n");
+	
+	// Create the proc interface
+	proc_create("killme", 0, NULL, &proc_file_fops);
+	 
+	// Associate the timer callback with the timer list.
+	setup_timer(&timers, TimerCallback, 0);
 
-		 printk("starting timer every 200ms (%ld)\n", jiffies);
-		 
-		 if (mod_timer(&timers, jiffies + msecs_to_jiffies(200)))
-				 printk("Error in mod_timer\n");
+	printk("starting timer every 1000ms (%ld)\n", jiffies);
+	 
+	if (mod_timer(&timers, jiffies + msecs_to_jiffies(1000)))
+		printk("Error in mod_timer\n");
 
-		 return 0;
+	return 0;
 }
 
 static void __exit ktimers_exit(void)
 {
-		 printk("Unloading my module.\n");
-		 if (del_timer(&timers))
-				 printk("Timers are still in use...\n");
-		 return;
+	printk("Unloading my module.\n");
+	if (del_timer(&timers))
+		printk("Timers are still in use...\n");
+		
+	remove_proc_entry("killme", NULL);
+	return;
 }
 
 module_init(ktimers_init);
